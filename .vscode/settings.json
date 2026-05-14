@@ -1,0 +1,4 @@
+{
+  "java.project.sourcePaths": ["GrabTutor/src"],
+  "java.project.referencedLibraries": ["GrabTutor/lib/**/*.jar"]
+}

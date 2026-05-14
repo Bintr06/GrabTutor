@@ -1,4 +1,6 @@
 {
-  "java.project.sourcePaths": ["GrabTutor/src"],
-  "java.project.referencedLibraries": ["GrabTutor/lib/**/*.jar"]
+  "java.project.referencedLibraries": [
+    "lib/**/*.jar",
+    "GrabTutor/lib/mysql-connector-j-9.2.0.jar"
+  ]
 }

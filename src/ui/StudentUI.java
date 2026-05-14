@@ -16,7 +16,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
+// import java.util.stream.Collectors;
 
 public class StudentUI extends JFrame {
     private final User currentUser;
@@ -24,6 +24,7 @@ public class StudentUI extends JFrame {
     private final BookingDAO bookingDAO = new BookingDAO();
     private final UserDAO userDAO = new UserDAO();
     private JComboBox<String> subjectCombo;
+    private JComboBox<String> gradeCombo;
     private JComboBox<String> provinceCombo;
     private JTextField nameSearchField;
     private JButton searchButton;
@@ -65,15 +66,24 @@ public class StudentUI extends JFrame {
         subjectCombo.setPreferredSize(new Dimension(220, 28));
         gc.gridx = 1; gc.weightx = 0.3;
         top.add(subjectCombo, gc);
-        gc.gridx = 2; gc.weightx = 0; top.add(new JLabel("Tỉnh/Thành:"), gc);
+
+        gc.gridx = 2; gc.weightx = 0; top.add(new JLabel("Lớp:"), gc);
+        gradeCombo = new JComboBox<>();
+        gradeCombo.setPreferredSize(new Dimension(140, 28));
+        gc.gridx = 3; gc.weightx = 0.2;
+        top.add(gradeCombo, gc);
+
+        gc.gridx = 4; gc.weightx = 0; top.add(new JLabel("Tỉnh/Thành:"), gc);
         provinceCombo = new JComboBox<>();
         provinceCombo.setPreferredSize(new Dimension(200, 28));
-        gc.gridx = 3; gc.weightx = 0.3; top.add(provinceCombo, gc);
+
+        gc.gridx = 5; gc.weightx = 0.3; top.add(provinceCombo, gc);
+
         gc.gridx = 0; gc.gridy = 1; gc.weightx = 0; top.add(new JLabel("Tìm theo tên:"), gc);
         nameSearchField = new JTextField();
-        gc.gridx = 1; gc.gridwidth = 2; gc.weightx = 0.6; top.add(nameSearchField, gc);
+        gc.gridx = 1; gc.gridwidth = 4; gc.weightx = 0.8; top.add(nameSearchField, gc);
         searchButton = new JButton("Tìm kiếm");
-        gc.gridx = 3; gc.gridwidth = 1; gc.weightx = 0; top.add(searchButton, gc);
+        gc.gridx = 5; gc.gridwidth = 1; gc.weightx = 0; top.add(searchButton, gc);
         loadFilterData();
         searchButton.addActionListener(e -> searchTutors());
         // logout button
@@ -247,6 +257,14 @@ public class StudentUI extends JFrame {
         List<String> subjects = tutorDAO.getAllSubjectNames();
         for (String s : subjects) subjectCombo.addItem(s);
 
+        gradeCombo.removeAllItems();
+        gradeCombo.addItem("Tất cả");
+        List<String> grades = tutorDAO.getAllGradeNames();
+        if (grades.isEmpty()) {
+            for (int i = 1; i <= 12; i++) grades.add("Lớp " + i);
+        }
+        for (String g : grades) gradeCombo.addItem(g);
+
         provinceCombo.removeAllItems();
         provinceCombo.addItem("Tất cả tỉnh thành");
         List<String> provinces = tutorDAO.getAllProvinceNames();
@@ -255,18 +273,15 @@ public class StudentUI extends JFrame {
 
     private void searchTutors() {
         String subject = (String) subjectCombo.getSelectedItem();
+        String grade = (String) gradeCombo.getSelectedItem();
         String province = (String) provinceCombo.getSelectedItem();
         String name = nameSearchField.getText().trim().toLowerCase();
 
-        List<Tutor> tutors;
-        if (subject == null || "Tất cả".equals(subject)) {
-            tutors = tutorDAO.getAllTutors();
-        } else {
-            tutors = tutorDAO.getTutorsBySubjectAndProvince(subject, null);
-        }
-        if (province != null && !"Tất cả tỉnh thành".equals(province)) {
-            tutors = tutors.stream().filter(t -> province.equals(t.getProvinceName())).collect(Collectors.toList());
-        }
+        String subjectFilter = (subject == null || "Tất cả".equals(subject)) ? null : subject;
+        String gradeFilter = (grade == null || "Tất cả".equals(grade)) ? null : grade;
+        String provinceFilter = (province == null || "Tất cả tỉnh thành".equals(province)) ? null : province;
+
+        List<Tutor> tutors = tutorDAO.searchTutors(subjectFilter, provinceFilter, gradeFilter);
         tutorTableModel.setRowCount(0);
         for (Tutor t : tutors) {
             if (t.getStatus() != null && "BUSY".equalsIgnoreCase(t.getStatus())) {

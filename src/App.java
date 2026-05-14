@@ -1,4 +1,5 @@
 import database.DBConnection;
+import database.DBInitializer;
 import ui.AuthFrame;
 
 import javax.swing.SwingUtilities;
@@ -8,6 +9,7 @@ public class App {
         SwingUtilities.invokeLater(() -> {
             try {
                 DBConnection.testConnection();
+                DBInitializer.initializeTables();
                 AuthFrame frame = new AuthFrame();
                 frame.setVisible(true);
             } catch (Exception e) {

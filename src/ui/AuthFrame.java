@@ -62,6 +62,8 @@ public class AuthFrame extends JFrame {
     private JRadioButton registerTutorRadio;
     private JPasswordField registerPasswordField;
     private JPasswordField registerConfirmPasswordField;
+    private List<JCheckBox> gradeCheckboxes = new ArrayList<>();
+    private JButton gradeSelectButton;
     private List<JCheckBox> subjectCheckboxes = new ArrayList<>();
     private JButton subjectSelectButton;
     private JComboBox<String> tutorProvinceCombo;
@@ -167,7 +169,7 @@ public class AuthFrame extends JFrame {
         return container;
     }
 
-    private JPanel createLoginTab() {
+    private JComponent createLoginTab() {
         JPanel panel = formCanvas();
 
         loginUsernameField = new JTextField();
@@ -185,7 +187,7 @@ public class AuthFrame extends JFrame {
         return panel;
     }
 
-    private JPanel createRegisterTab() {
+    private JComponent createRegisterTab() {
         JPanel panel = formCanvas();
 
         registerFullNameField = new JTextField();
@@ -212,10 +214,11 @@ public class AuthFrame extends JFrame {
 
         tutorExtraPanel = new JPanel(new GridBagLayout());
         tutorExtraPanel.setOpaque(false);
-        addField(tutorExtraPanel, 0, "Môn dạy (chọn nhiều môn)", createSubjectPanel());
-        addField(tutorExtraPanel, 1, "Tỉnh/Thành", createProvinceCombo());
-        addField(tutorExtraPanel, 2, "Học phí/giờ", tutorPriceField);
-        addField(tutorExtraPanel, 3, "Mô tả kinh nghiệm", wrapArea(tutorExperienceArea));
+        addField(tutorExtraPanel, 0, "Lớp dạy (chọn nhiều lớp)", createGradePanel());
+        addField(tutorExtraPanel, 1, "Môn dạy (chọn nhiều môn)", createSubjectPanel());
+        addField(tutorExtraPanel, 2, "Tỉnh/Thành", createProvinceCombo());
+        addField(tutorExtraPanel, 3, "Học phí/giờ", tutorPriceField);
+        addField(tutorExtraPanel, 4, "Mô tả kinh nghiệm", wrapArea(tutorExperienceArea));
 
         addField(panel, 0, "Họ và tên", registerFullNameField);
         addField(panel, 1, "Tên đăng nhập", registerUsernameField);
@@ -239,7 +242,15 @@ public class AuthFrame extends JFrame {
         registerButton.addActionListener(e -> handleRegister());
 
         panel.add(buttonRow(registerButton), rowConstraints(7));
-        return panel;
+
+        JScrollPane scrollPane = new JScrollPane(panel,
+            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        return scrollPane;
     }
 
     private JPanel formCanvas() {
@@ -252,7 +263,13 @@ public class AuthFrame extends JFrame {
     private void updateTutorFieldsVisibility() {
         boolean isTutor = registerTutorRadio.isSelected();
         tutorExtraPanel.setVisible(isTutor);
-        subjectSelectButton.setEnabled(isTutor);
+        if (gradeSelectButton != null) {
+            gradeSelectButton.setEnabled(isTutor);
+        }
+
+        if (subjectSelectButton != null) {
+            subjectSelectButton.setEnabled(isTutor && hasAnyGradeSelected());
+        }
         tutorProvinceCombo.setEnabled(isTutor);
         tutorPriceField.setEnabled(isTutor);
         tutorExperienceArea.setEnabled(isTutor);
@@ -335,6 +352,7 @@ public class AuthFrame extends JFrame {
                 }
 
                 if ("TUTOR".equals(role)) {
+                    List<String> selectedGrades = collectSelectedGrades();
                     List<String> selectedSubjects = collectSelectedSubjects();
                     String provinceName = tutorProvinceCombo.getSelectedItem() == null
                             ? ""
@@ -342,8 +360,16 @@ public class AuthFrame extends JFrame {
                     String priceText = tutorPriceField.getText().trim();
                     String experience = tutorExperienceArea.getText().trim();
 
-                    if (selectedSubjects.isEmpty() || priceText.isEmpty() || provinceName.isEmpty()) {
-                        throw new SQLException("Gia sư cần chọn ít nhất 1 môn dạy, 1 tỉnh/thành và nhập học phí/giờ.");
+                    if (selectedGrades.isEmpty()) {
+                        throw new SQLException("Gia sư cần chọn ít nhất 1 lớp dạy trước khi chọn môn.");
+                    }
+
+                    if (selectedSubjects.isEmpty()) {
+                        throw new SQLException("Gia sư cần chọn ít nhất 1 môn dạy.");
+                    }
+
+                    if (priceText.isEmpty() || provinceName.isEmpty()) {
+                        throw new SQLException("Gia sư cần chọn 1 tỉnh/thành và nhập học phí/giờ.");
                     }
 
                     Integer provinceId = tutorDAO.getProvinceIdByName(conn, provinceName);
@@ -361,6 +387,11 @@ public class AuthFrame extends JFrame {
 
                     if (!tutorDAO.insertTutor(conn, tutor)) {
                         throw new SQLException("Không thể tạo hồ sơ gia sư.");
+                    }
+
+                    // Save tutor grades first
+                    if (!tutorDAO.insertTutorGrades(conn, userId, selectedGrades)) {
+                        throw new SQLException("Không thể lưu danh sách lớp dạy.");
                     }
 
                     for (String subjectName : selectedSubjects) {
@@ -405,6 +436,20 @@ public class AuthFrame extends JFrame {
                 .toList();
     }
 
+    private List<String> collectSelectedGrades() {
+        return gradeCheckboxes.stream()
+                .filter(JCheckBox::isSelected)
+                .map(JCheckBox::getText)
+                .toList();
+    }
+
+    private boolean hasAnyGradeSelected() {
+        for (JCheckBox cb : gradeCheckboxes) {
+            if (cb.isSelected()) return true;
+        }
+        return false;
+    }
+
     private void clearRegisterForm() {
         registerFullNameField.setText("");
         registerUsernameField.setText("");
@@ -412,11 +457,15 @@ public class AuthFrame extends JFrame {
         registerStudentRadio.setSelected(true);
         registerPasswordField.setText("");
         registerConfirmPasswordField.setText("");
+        gradeCheckboxes.forEach(cb -> cb.setSelected(false));
+        updateGradeButtonLabel();
         subjectCheckboxes.forEach(cb -> cb.setSelected(false));
         updateSubjectButtonLabel();
+        updateSubjectEnabledState();
         tutorProvinceCombo.setSelectedIndex(-1);
         tutorPriceField.setText("");
         tutorExperienceArea.setText("");
+        updateTutorFieldsVisibility();
     }
 
     private JPanel buttonRow(JButton button) {
@@ -440,6 +489,34 @@ public class AuthFrame extends JFrame {
         return rolePanel;
     }
 
+    private JComponent createGradePanel() {
+        gradeCheckboxes.clear();
+        List<String> grades = tutorDAO.getAllGradeNames();
+        if (grades.isEmpty()) {
+            List<String> fallback = new ArrayList<>();
+            for (int i = 1; i <= 12; i++) fallback.add("Lớp " + i);
+            grades = fallback;
+        }
+
+        for (String grade : grades) {
+            JCheckBox checkbox = new JCheckBox(grade);
+            checkbox.setFont(formFont());
+            checkbox.setOpaque(false);
+            checkbox.addItemListener(e -> {
+                updateGradeButtonLabel();
+                updateSubjectEnabledState();
+            });
+            gradeCheckboxes.add(checkbox);
+        }
+
+        gradeSelectButton = new JButton("Chọn lớp");
+        gradeSelectButton.setFont(formFont());
+        gradeSelectButton.addActionListener(e -> showGradeDialog());
+        updateGradeButtonLabel();
+
+        return gradeSelectButton;
+    }
+
     private JComponent createSubjectPanel() {
         subjectCheckboxes.clear();
         List<String> subjects = tutorDAO.getAllSubjectNames();
@@ -460,6 +537,9 @@ public class AuthFrame extends JFrame {
         subjectSelectButton.addActionListener(e -> showSubjectDialog());
         updateSubjectButtonLabel();
 
+        // Default: disabled until user selected at least one grade
+        subjectSelectButton.setEnabled(false);
+
         return subjectSelectButton;
     }
 
@@ -475,6 +555,23 @@ public class AuthFrame extends JFrame {
         return tutorProvinceCombo;
     }
 
+    private void updateGradeButtonLabel() {
+        List<String> selected = collectSelectedGrades();
+        if (gradeSelectButton == null) return;
+        if (selected.isEmpty()) {
+            gradeSelectButton.setText("Chọn lớp");
+        } else {
+            gradeSelectButton.setText(String.join(", ", selected));
+        }
+    }
+
+    private void updateSubjectEnabledState() {
+        boolean isTutor = registerTutorRadio != null && registerTutorRadio.isSelected();
+        if (subjectSelectButton != null) {
+            subjectSelectButton.setEnabled(isTutor && hasAnyGradeSelected());
+        }
+    }
+
     private void updateSubjectButtonLabel() {
         List<String> selected = collectSelectedSubjects();
         if (selected.isEmpty()) {
@@ -482,6 +579,26 @@ public class AuthFrame extends JFrame {
         } else {
             subjectSelectButton.setText(String.join(", ", selected));
         }
+    }
+
+    private void showGradeDialog() {
+        JPanel checkboxPanel = new JPanel();
+        checkboxPanel.setLayout(new BoxLayout(checkboxPanel, BoxLayout.Y_AXIS));
+        checkboxPanel.setBackground(Color.WHITE);
+
+        for (JCheckBox checkbox : gradeCheckboxes) {
+            checkboxPanel.add(checkbox);
+        }
+
+        JScrollPane scrollPane = new JScrollPane(checkboxPanel);
+        scrollPane.setPreferredSize(new Dimension(300, 200));
+
+        JOptionPane.showConfirmDialog(this, scrollPane, "Chọn lớp dạy",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        // Refresh enablement in case user changed selection.
+        updateGradeButtonLabel();
+        updateSubjectEnabledState();
     }
 
     private void showSubjectDialog() {

@@ -90,41 +90,87 @@ public class TutorUI extends JFrame {
         JTextField priceField = new JTextField(tutor != null && tutor.getPricePerHour() != null ? tutor.getPricePerHour().toPlainString() : "", 12);
         gbc.gridx = 1; p.add(priceField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 3; p.add(new JLabel("Tỉnh/Thành:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 3; gbc.anchor = GridBagConstraints.WEST; p.add(new JLabel("Tỉnh/Thành:"), gbc);
         JComboBox<String> provinceBox = new JComboBox<>();
         provinceBox.addItem("");
         tutorDAO.getAllProvinceNames().forEach(provinceBox::addItem);
         if (tutor != null && tutor.getProvinceName() != null) provinceBox.setSelectedItem(tutor.getProvinceName());
         gbc.gridx = 1; p.add(provinceBox, gbc);
-        gbc.gridx = 0; gbc.gridy = 4; gbc.anchor = GridBagConstraints.NORTHWEST; p.add(new JLabel("Môn dạy:"), gbc);
-        JPanel subjectsPanel = new JPanel(); subjectsPanel.setLayout(new BoxLayout(subjectsPanel, BoxLayout.Y_AXIS));
+
+        gbc.gridx = 0; gbc.gridy = 4; gbc.anchor = GridBagConstraints.NORTHWEST; p.add(new JLabel("Lớp dạy:"), gbc);
+        JPanel gradesPanel = new JPanel();
+        gradesPanel.setLayout(new GridLayout(0, 2, 5, 5));
+        List<String> allGrades = tutorDAO.getAllGradeNames();
+        if (allGrades.isEmpty()) {
+            allGrades = new ArrayList<>();
+            for (int i = 1; i <= 12; i++) allGrades.add("Lớp " + i);
+        }
+List<String> selectedGrades = tutor != null ? tutorDAO.getGradeNamesByTutorId(tutor.getTutorId()) : new ArrayList<>();
+System.out.println("DEBUG - Danh sach lop tu DB: " + selectedGrades); 
+
+List<JCheckBox> gradeChecks = new ArrayList<>();
+for (String g : allGrades) {
+    JCheckBox cb = new JCheckBox(g);
+    boolean isSelected = false;
+
+    for (String s : selectedGrades) {
+        if (s != null && s.trim().equalsIgnoreCase(g.trim())) {
+            isSelected = true;
+            break;
+        }
+    }
+    
+    cb.setSelected(isSelected);
+    gradeChecks.add(cb); 
+    gradesPanel.add(cb);
+}
+        JScrollPane gradeScroll = new JScrollPane(gradesPanel);
+        gradeScroll.setPreferredSize(new Dimension(320, 250));
+        gbc.gridx = 1; p.add(gradeScroll, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 5; gbc.anchor = GridBagConstraints.NORTHWEST; p.add(new JLabel("Môn dạy:"), gbc);
+        JPanel subjectsPanel = new JPanel();
+        subjectsPanel.setLayout(new BoxLayout(subjectsPanel, BoxLayout.Y_AXIS));
         List<String> allSubjects = tutorDAO.getAllSubjectNames();
         List<String> selected = tutor != null ? tutorDAO.getSubjectNamesByTutorId(tutor.getTutorId()) : List.of();
         List<JCheckBox> subjectChecks = new ArrayList<>();
         for (String s : allSubjects) {
             JCheckBox cb = new JCheckBox(s);
-            cb.setSelected(selected.contains(s));
+            boolean isSelected = false;
+            for (String selectedSubject : selected) {
+                if (selectedSubject != null && selectedSubject.trim().equalsIgnoreCase(s.trim())) {
+                    isSelected = true;
+                    break;
+                }
+            }
+            cb.setSelected(isSelected);
+            
             subjectChecks.add(cb);
             subjectsPanel.add(cb);
         }
         JScrollPane subjScroll = new JScrollPane(subjectsPanel);
-        subjScroll.setPreferredSize(new Dimension(320, 140));
+        subjScroll.setPreferredSize(new Dimension(320, 250));
         gbc.gridx = 1; p.add(subjScroll, gbc);
-        gbc.gridx = 0; gbc.gridy = 5; gbc.anchor = GridBagConstraints.NORTHWEST; p.add(new JLabel("Kinh nghiệm:"), gbc);
+
+        gbc.gridx = 0; gbc.gridy = 6; gbc.anchor = GridBagConstraints.NORTHWEST; p.add(new JLabel("Kinh nghiệm:"), gbc);
         JTextArea expArea = new JTextArea(tutor != null && tutor.getExperience() != null ? tutor.getExperience() : "", 6, 32);
-        expArea.setLineWrap(true); expArea.setWrapStyleWord(true);
+        expArea.setLineWrap(true);
+        expArea.setWrapStyleWord(true);
         gbc.gridx = 1; p.add(new JScrollPane(expArea), gbc);
-        gbc.gridx = 0; gbc.gridy = 6; p.add(new JLabel("Trạng thái:"), gbc);
+
+        gbc.gridx = 0; gbc.gridy = 7; gbc.anchor = GridBagConstraints.WEST; p.add(new JLabel("Trạng thái:"), gbc);
         JRadioButton avail = new JRadioButton("AVAILABLE");
         JRadioButton busy = new JRadioButton("BUSY");
         ButtonGroup bg = new ButtonGroup(); bg.add(avail); bg.add(busy);
         String curStatus = tutor != null && tutor.getStatus() != null ? tutor.getStatus() : "AVAILABLE";
         if ("BUSY".equalsIgnoreCase(curStatus)) busy.setSelected(true); else avail.setSelected(true);
-        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT)); statusPanel.add(avail); statusPanel.add(busy);
+        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        statusPanel.add(avail);
+        statusPanel.add(busy);
         gbc.gridx = 1; p.add(statusPanel, gbc);
 
         JButton saveBtn = new JButton("Lưu thay đổi");
-        gbc.gridx = 1; gbc.gridy = 7; gbc.anchor = GridBagConstraints.WEST; p.add(saveBtn, gbc);
+        gbc.gridx = 1; gbc.gridy = 8; gbc.anchor = GridBagConstraints.WEST; p.add(saveBtn, gbc);
 
         saveBtn.addActionListener(e -> {
             try {
@@ -134,6 +180,7 @@ public class TutorUI extends JFrame {
                 String provinceName = (String) provinceBox.getSelectedItem();
                 Integer provinceId = provinceName == null || provinceName.isBlank() ? null : tutorDAO.getProvinceIdByName(provinceName);
 
+                List<String> newGrades = gradeChecks.stream().filter(AbstractButton::isSelected).map(AbstractButton::getText).toList();
                 List<String> newSubjects = subjectChecks.stream().filter(AbstractButton::isSelected).map(AbstractButton::getText).toList();
                 String newExp = expArea.getText().trim();
                 String newStatus = avail.isSelected() ? "AVAILABLE" : "BUSY";
@@ -147,8 +194,9 @@ public class TutorUI extends JFrame {
 
                 boolean ok1 = userDAO.updateUser(u);
                 boolean ok2 = tutorDAO.updateTutor(tu);
-                boolean ok3 = tutorDAO.replaceTutorSubjects(currentUser.getUserId(), newSubjects);
-                if (ok1 && ok2 && ok3) {
+                boolean ok3 = tutorDAO.replaceTutorGrades(currentUser.getUserId(), newGrades);
+                boolean ok4 = tutorDAO.replaceTutorSubjects(currentUser.getUserId(), newSubjects);
+                if (ok1 && ok2 && ok3 && ok4) {
                     JOptionPane.showMessageDialog(this, "Cập nhật hồ sơ thành công.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
                 } else {
                     JOptionPane.showMessageDialog(this, "Không thể lưu đầy đủ thay đổi.", "Lỗi", JOptionPane.ERROR_MESSAGE);

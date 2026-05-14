@@ -109,6 +109,136 @@ public class TutorDAO {
 
         return subjectNames;
     }
+
+    // ==============================
+    // Grades (Lớp) helpers
+    // ==============================
+
+    public List<String> getAllGradeNames() {
+        List<String> gradeNames = new ArrayList<>();
+        String sql = "SELECT name FROM grades ORDER BY id ASC";
+
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                gradeNames.add(rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting grade names: " + e.getMessage());
+        }
+
+        return gradeNames;
+    }
+
+    public Integer getGradeIdByName(Connection conn, String name) {
+        String sql = "SELECT id FROM grades WHERE LOWER(name) = LOWER(?)";
+        if (name == null || name.trim().isEmpty()) return null;
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, name);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi khi lấy Grade ID: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    private boolean insertTutorGrade(Connection conn, int tutorId, int gradeId) throws SQLException {
+        String sql = "INSERT INTO tutor_grades (tutor_id, grade_id) VALUES (?, ?)";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, tutorId);
+            pstmt.setInt(2, gradeId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    public boolean insertTutorGrades(Connection conn, int tutorId, List<String> gradeNames) throws SQLException {
+        if (gradeNames == null || gradeNames.isEmpty()) {
+            return false;
+        }
+
+        for (String gradeName : gradeNames) {
+            Integer gradeId = getGradeIdByName(conn, gradeName);
+            if (gradeId == null) {
+                throw new SQLException("Grade not found: " + gradeName);
+            }
+
+            if (!insertTutorGrade(conn, tutorId, gradeId)) {
+                throw new SQLException("Cannot insert tutor-grade: " + gradeName);
+            }
+        }
+        return true;
+    }
+
+    public List<String> getGradeNamesByTutorId(int tutorId) {
+        List<String> grades = new ArrayList<>();
+        String sql = "SELECT g.name FROM tutor_grades tg " +
+                 "INNER JOIN grades g ON tg.grade_id = g.id " +
+                 "WHERE tg.tutor_id = ? ORDER BY g.id ASC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, tutorId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    grades.add(rs.getString("name").trim());
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting tutor grades: " + e.getMessage());
+        }
+
+        return grades;
+    }
+
+    public boolean replaceTutorGrades(int tutorId, List<String> gradeNames) {
+        String deleteSql = "DELETE FROM tutor_grades WHERE tutor_id = ?";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            boolean oldAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+
+            try {
+                try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                    deleteStmt.setInt(1, tutorId);
+                    deleteStmt.executeUpdate();
+                }
+
+                if (gradeNames != null) {
+                    for (String gradeName : gradeNames) {
+                        Integer gradeId = getGradeIdByName(conn, gradeName);
+                        if (gradeId == null) {
+                            throw new SQLException("Grade not found: " + gradeName);
+                        }
+
+                        if (!insertTutorGrade(conn, tutorId, gradeId)) {
+                            throw new SQLException("Cannot insert tutor-grade: " + gradeName);
+                        }
+                    }
+                }
+
+                conn.commit();
+                return true;
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(oldAutoCommit);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error replacing tutor grades: " + e.getMessage());
+            return false;
+        }
+    }
     public boolean insertTutorSubject(Connection conn, int tutorId, int subjectId) throws SQLException {
         String sql = "INSERT INTO Tutor_Subjects (tutor_id, subject_id) VALUES (?, ?)";
 
@@ -148,7 +278,7 @@ public class TutorDAO {
             pstmt.setInt(1, tutorId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    subjects.add(rs.getString("subject_name"));
+                    subjects.add(rs.getString("subject_name").trim());
                 }
             }
         } catch (SQLException e) {
@@ -284,6 +414,69 @@ public class TutorDAO {
         } catch (SQLException e) {
             System.err.println("Error getting all tutors: " + e.getMessage());
         }
+        return tutors;
+    }
+
+    /**
+     * Search tutors with optional filters (any may be null/blank): subject_name, province_name, grade name.
+     * When gradeName is provided, joins tutor_grades + grades to filter correctly.
+     */
+    public List<Tutor> searchTutors(String subjectName, String provinceName, String gradeName) {
+        List<Tutor> tutors = new ArrayList<>();
+        boolean hasSubject = subjectName != null && !subjectName.isBlank();
+        boolean hasProvince = provinceName != null && !provinceName.isBlank();
+        boolean hasGrade = gradeName != null && !gradeName.isBlank();
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT DISTINCT t.*, p.province_name ")
+           .append("FROM Tutors t ")
+           .append("LEFT JOIN Provinces p ON t.province_id = p.province_id ");
+
+        if (hasSubject) {
+            sql.append("INNER JOIN Tutor_Subjects ts ON t.tutor_id = ts.tutor_id ")
+               .append("INNER JOIN Subjects s ON ts.subject_id = s.subject_id ");
+        }
+
+        if (hasGrade) {
+            sql.append("INNER JOIN tutor_grades tg ON t.tutor_id = tg.tutor_id ")
+               .append("INNER JOIN grades g ON tg.grade_id = g.id ");
+        }
+
+        sql.append("WHERE 1=1 ");
+        if (hasSubject) {
+            sql.append("AND s.subject_name = ? ");
+        }
+        if (hasProvince) {
+            sql.append("AND p.province_name = ? ");
+        }
+        if (hasGrade) {
+            sql.append("AND g.name = ? ");
+        }
+        sql.append("ORDER BY t.price_per_hour ASC");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+
+            int idx = 1;
+            if (hasSubject) {
+                pstmt.setString(idx++, subjectName);
+            }
+            if (hasProvince) {
+                pstmt.setString(idx++, provinceName);
+            }
+            if (hasGrade) {
+                pstmt.setString(idx++, gradeName);
+            }
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    tutors.add(mapResultSetToTutor(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error searching tutors: " + e.getMessage());
+        }
+
         return tutors;
     }
     public boolean updateTutor(Tutor tutor) {

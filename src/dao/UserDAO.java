@@ -10,10 +10,6 @@ public class UserDAO {
     public boolean insertUser(User user) {
         return insertUserAndReturnId(user) > 0;
     }
-
-    /**
-     * Insert a new user and return the generated id.
-     */
     public int insertUserAndReturnId(User user) {
         String sql = "INSERT INTO Users (username, password, full_name, phone, role) VALUES (?, ?, ?, ?, ?)";
 
@@ -42,10 +38,6 @@ public class UserDAO {
         }
         return -1;
     }
-
-    /**
-     * Insert a new user inside an existing transaction.
-     */
     public int insertUser(Connection conn, User user) throws SQLException {
         String sql = "INSERT INTO Users (username, password, full_name, phone, role) VALUES (?, ?, ?, ?, ?)";
 
@@ -70,10 +62,6 @@ public class UserDAO {
 
         return -1;
     }
-    
-    /**
-     * Get user by ID
-     */
     public User getUserById(int userId) {
         String sql = "SELECT * FROM Users WHERE user_id = ?";
         
@@ -92,10 +80,6 @@ public class UserDAO {
         }
         return null;
     }
-    
-    /**
-     * Get user by username
-     */
     public User getUserByUsername(String username) {
         String sql = "SELECT * FROM Users WHERE username = ?";
         

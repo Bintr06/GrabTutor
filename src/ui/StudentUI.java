@@ -2,307 +2,349 @@ package ui;
 
 import dao.BookingDAO;
 import dao.TutorDAO;
+import dao.UserDAO;
 import model.User;
 import model.Booking;
 import model.Tutor;
 
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.ArrayList;
-import java.util.Map;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class StudentUI extends JFrame {
     private final User currentUser;
     private final TutorDAO tutorDAO = new TutorDAO();
     private final BookingDAO bookingDAO = new BookingDAO();
-
-    private final List<String> selectedSubjects = new ArrayList<>();
-    private JComboBox<String> provinceFilterCombo;
-    private JButton subjectSelectButton;
-    private JList<Tutor> tutorList;
-    private JButton requestButton;
+    private final UserDAO userDAO = new UserDAO();
+    private JComboBox<String> subjectCombo;
+    private JComboBox<String> provinceCombo;
+    private JTextField nameSearchField;
+    private JButton searchButton;
+    private JTable tutorTable;
+    private DefaultTableModel tutorTableModel;
     private JTextArea notesArea;
-    private JTextArea bookingStatusArea;
-
+    private JLabel totalPriceLabel;
+    private JButton bookButton;
+    private JTable historyTable;
+    private DefaultTableModel historyModel;
     public StudentUI(User user) {
         this.currentUser = user;
         setupUI();
     }
-
     private void setupUI() {
-        setTitle("GrabTutor - Tìm Gia Sư (Học sinh: " + currentUser.getUsername() + ")");
+        setTitle("GrabTutor - Tìm Gia Sư (" + currentUser.getFullName() + ")");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(600, 500);
+        setSize(900, 650);
         setLocationRelativeTo(null);
-        setResizable(false);
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Tìm kiếm gia sư", createSearchTab());
+        tabs.addTab("Lịch sử đặt chỗ", createHistoryTab());
 
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        mainPanel.setBackground(Color.WHITE);
-
-        // Top: Subject selection
-        JPanel subjectPanel = createSubjectPanel();
-        mainPanel.add(subjectPanel, BorderLayout.NORTH);
-
-        // Center: Tutor list
-        JPanel tutorPanel = createTutorPanel();
-        mainPanel.add(tutorPanel, BorderLayout.CENTER);
-
-        // Bottom: Booking status
-        JPanel bottomPanel = createBottomPanel();
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-
-        add(mainPanel);
+        add(tabs);
         setVisible(true);
     }
 
-    private JPanel createSubjectPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 6));
-        panel.setBorder(BorderFactory.createTitledBorder("Chọn môn cần học"));
-        panel.setBackground(Color.WHITE);
-
-        JPanel filterRow = new JPanel(new BorderLayout(8, 0));
-        filterRow.setOpaque(false);
-
-        subjectSelectButton = new JButton("Chọn môn");
-        subjectSelectButton.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        subjectSelectButton.setFocusPainted(false);
-        subjectSelectButton.addActionListener(e -> showSubjectPicker());
-
-        provinceFilterCombo = createProvinceFilterCombo();
-        filterRow.add(subjectSelectButton, BorderLayout.CENTER);
-        filterRow.add(provinceFilterCombo, BorderLayout.EAST);
-
-        panel.add(filterRow, BorderLayout.CENTER);
-
-        return panel;
-    }
-
-    private JComboBox<String> createProvinceFilterCombo() {
-        List<String> provinceOptions = new ArrayList<>();
-        provinceOptions.add("Tất cả tỉnh thành");
-
-        List<String> provinces = tutorDAO.getAllProvinceNames();
-        if (provinces.isEmpty()) {
-            provinces = List.of("Đà Nẵng", "Hà Nội", "TP Hồ Chí Minh", "Quảng Nam", "Huế");
-        }
-        provinceOptions.addAll(provinces);
-
-        JComboBox<String> combo = new JComboBox<>(provinceOptions.toArray(new String[0]));
-        combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        combo.addActionListener(e -> updateTutorList());
-        combo.setPreferredSize(new Dimension(190, 30));
-        return combo;
-    }
-
-    private JPanel createTutorPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createTitledBorder("Danh sách gia sư"));
-        panel.setBackground(Color.WHITE);
-
-        tutorList = new JList<>();
-        tutorList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tutorList.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        tutorList.setCellRenderer((list, tutor, index, isSelected, cellHasFocus) -> {
-            JLabel label = new JLabel(formatTutor(tutor));
-            label.setOpaque(true);
-            label.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
-            if (isSelected) {
-                label.setBackground(list.getSelectionBackground());
-                label.setForeground(list.getSelectionForeground());
-            } else {
-                label.setBackground(list.getBackground());
-                label.setForeground(list.getForeground());
-            }
-            return label;
+    private JPanel createSearchTab() {
+        JPanel main = new JPanel(new BorderLayout(8, 8));
+        main.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel top = new JPanel(new GridBagLayout());
+        top.setBorder(BorderFactory.createTitledBorder("Tìm kiếm & Bộ lọc"));
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(6, 6, 6, 6);
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.gridx = 0; gc.gridy = 0; gc.weightx = 0;
+        top.add(new JLabel("Môn học:"), gc);
+        subjectCombo = new JComboBox<>();
+        subjectCombo.setPreferredSize(new Dimension(220, 28));
+        gc.gridx = 1; gc.weightx = 0.3;
+        top.add(subjectCombo, gc);
+        gc.gridx = 2; gc.weightx = 0; top.add(new JLabel("Tỉnh/Thành:"), gc);
+        provinceCombo = new JComboBox<>();
+        provinceCombo.setPreferredSize(new Dimension(200, 28));
+        gc.gridx = 3; gc.weightx = 0.3; top.add(provinceCombo, gc);
+        gc.gridx = 0; gc.gridy = 1; gc.weightx = 0; top.add(new JLabel("Tìm theo tên:"), gc);
+        nameSearchField = new JTextField();
+        gc.gridx = 1; gc.gridwidth = 2; gc.weightx = 0.6; top.add(nameSearchField, gc);
+        searchButton = new JButton("Tìm kiếm");
+        gc.gridx = 3; gc.gridwidth = 1; gc.weightx = 0; top.add(searchButton, gc);
+        loadFilterData();
+        searchButton.addActionListener(e -> searchTutors());
+        // logout button
+        JButton logoutBtn = new JButton("Đăng xuất");
+        logoutBtn.addActionListener(e -> {
+            // return to login
+            new AuthFrame().setVisible(true);
+            dispose();
         });
 
-        JScrollPane scrollPane = new JScrollPane(tutorList);
-        scrollPane.setPreferredSize(new Dimension(400, 200));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.add(top, BorderLayout.WEST);
+        JPanel rightWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rightWrap.setOpaque(false);
+        rightWrap.add(logoutBtn);
+        header.add(rightWrap, BorderLayout.EAST);
+        JPanel center = new JPanel(new BorderLayout());
+        center.setBorder(BorderFactory.createTitledBorder("Danh sách gia sư"));
 
-        panel.add(scrollPane, BorderLayout.CENTER);
-        updateTutorList();
+        String[] cols = new String[]{"ID", "Họ tên", "Môn dạy", "Giá/Giờ", "Khu vực", "Kinh nghiệm"};
+        tutorTableModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        tutorTable = new JTable(tutorTableModel);
+        tutorTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tutorTable.getSelectionModel().addListSelectionListener(e -> onTutorSelected(e));
+        TableColumn idCol = tutorTable.getColumnModel().getColumn(0);
+        idCol.setMinWidth(0); idCol.setMaxWidth(0); idCol.setPreferredWidth(0); idCol.setResizable(false);
 
-        return panel;
-    }
-
-    private JPanel createBottomPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createTitledBorder("Yêu cầu booking"));
-        panel.setBackground(Color.WHITE);
-
-        JPanel notePanel = new JPanel(new BorderLayout(6, 6));
-        notePanel.setOpaque(false);
-        JLabel noteLabel = new JLabel("Lời nhắn cho gia sư:");
-        noteLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-
-        notesArea = new JTextArea(3, 40);
+        JScrollPane tableScroll = new JScrollPane(tutorTable);
+        center.add(tableScroll, BorderLayout.CENTER);
+        JPanel right = new JPanel(new BorderLayout(6, 6));
+        right.setPreferredSize(new Dimension(320, 300));
+        right.setBorder(BorderFactory.createTitledBorder("Chi tiết & Ghi chú"));
+        notesArea = new JTextArea(6, 20);
         notesArea.setLineWrap(true);
         notesArea.setWrapStyleWord(true);
-        notesArea.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         JScrollPane notesScroll = new JScrollPane(notesArea);
-        notesScroll.setPreferredSize(new Dimension(400, 70));
-        notePanel.add(noteLabel, BorderLayout.NORTH);
-        notePanel.add(notesScroll, BorderLayout.CENTER);
-        requestButton = new JButton("Yêu cầu gia sư này");
-        requestButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        requestButton.setPreferredSize(new Dimension(150, 35));
-        requestButton.setBackground(new Color(59, 130, 246));
-        requestButton.setForeground(Color.WHITE);
-        requestButton.setFocusPainted(false);
-        requestButton.addActionListener(e -> requestTutor());
-        bookingStatusArea = new JTextArea(3, 40);
-        bookingStatusArea.setEditable(false);
-        bookingStatusArea.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        bookingStatusArea.setLineWrap(true);
-        bookingStatusArea.setWrapStyleWord(true);
-        bookingStatusArea.setBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)));
-        JScrollPane statusScroll = new JScrollPane(bookingStatusArea);
+        totalPriceLabel = new JLabel("Giá dự kiến: -");
+        bookButton = new JButton("Đặt gia sư");
+        bookButton.setEnabled(false);
+        JPanel bottomRight = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        bottomRight.add(totalPriceLabel);
+        bottomRight.add(bookButton);
+        right.add(notesScroll, BorderLayout.CENTER);
+        right.add(bottomRight, BorderLayout.SOUTH);
+        bookButton.addActionListener(e -> bookSelectedTutor());
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, center, right);
+        split.setResizeWeight(0.65);
+        main.add(header, BorderLayout.NORTH);
+        main.add(split, BorderLayout.CENTER);
+        searchTutors();
 
-        JPanel topSub = new JPanel(new BorderLayout());
-        topSub.setOpaque(false);
-        topSub.add(requestButton, BorderLayout.WEST);
-
-        JPanel northPanel = new JPanel(new BorderLayout(0, 8));
-        northPanel.setOpaque(false);
-        northPanel.add(notePanel, BorderLayout.NORTH);
-        northPanel.add(topSub, BorderLayout.CENTER);
-
-        panel.add(northPanel, BorderLayout.NORTH);
-        panel.add(statusScroll, BorderLayout.CENTER);
-
-        loadBookingStatus();
-
-        return panel;
+        return main;
     }
 
-    private void updateTutorList() {
-        DefaultListModel<Tutor> tutorModel = new DefaultListModel<>();
+    private JPanel createHistoryTab() {
+        JPanel p = new JPanel(new BorderLayout(6,6));
+        p.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
+        String[] cols = new String[]{"ID", "Gia sư", "Ngày đặt", "Ghi chú", "Trạng thái"};
+        historyModel = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+        };
+        historyTable = new JTable(historyModel);
+        // hide ID column
+        TableColumn idCol = historyTable.getColumnModel().getColumn(0);
+        idCol.setMinWidth(0); idCol.setMaxWidth(0); idCol.setPreferredWidth(0); idCol.setResizable(false);
 
-        if (selectedSubjects.isEmpty()) {
-            tutorList.setModel(tutorModel);
-            return;
-        }
-
-        Map<Integer, Tutor> uniqueTutors = new LinkedHashMap<>();
-        String selectedProvince = provinceFilterCombo != null
-                ? (String) provinceFilterCombo.getSelectedItem()
-                : "Tất cả tỉnh thành";
-        String provinceFilter = (selectedProvince == null || "Tất cả tỉnh thành".equals(selectedProvince))
-                ? null
-                : selectedProvince;
-
-        for (String subject : selectedSubjects) {
-            List<Tutor> tutors = tutorDAO.getTutorsBySubjectAndProvince(subject, provinceFilter);
-            for (Tutor tutor : tutors) {
-                uniqueTutors.putIfAbsent(tutor.getTutorId(), tutor);
+        // Add mouse listener to view full notes when clicking on notes column
+        historyTable.addMouseListener(new MouseListener() {
+            @Override public void mouseClicked(MouseEvent e) {
+                int row = historyTable.rowAtPoint(e.getPoint());
+                int col = historyTable.columnAtPoint(e.getPoint());
+                if (row >= 0 && col == 3) { // notes column (index 3)
+                    int modelRow = historyTable.convertRowIndexToModel(row);
+                    Object notesObj = historyModel.getValueAt(modelRow, 3);
+                    String notes = notesObj != null ? notesObj.toString() : "(không có ghi chú)";
+                    JTextArea textarea = new JTextArea(notes, 10, 40);
+                    textarea.setLineWrap(true);
+                    textarea.setWrapStyleWord(true);
+                    textarea.setEditable(false);
+                    JScrollPane scroll = new JScrollPane(textarea);
+                    JOptionPane.showMessageDialog(StudentUI.this, scroll, "Ghi chú đầy đủ", JOptionPane.INFORMATION_MESSAGE);
+                }
             }
-        }
+            @Override public void mousePressed(MouseEvent e) {}
+            @Override public void mouseReleased(MouseEvent e) {}
+            @Override public void mouseEntered(MouseEvent e) {}
+            @Override public void mouseExited(MouseEvent e) {}
+        });
 
-        for (Tutor tutor : uniqueTutors.values()) {
-            tutorModel.addElement(tutor);
-        }
+        JScrollPane sc = new JScrollPane(historyTable);
+        p.add(sc, BorderLayout.CENTER);
 
-        tutorList.setModel(tutorModel);
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton cancelBtn = new JButton("Hủy yêu cầu");
+        JButton confirmStartBtn = new JButton("Xác nhận bắt đầu");
+        cancelBtn.setEnabled(false);
+        confirmStartBtn.setEnabled(false);
+        bottom.add(cancelBtn);
+        bottom.add(confirmStartBtn);
+        p.add(bottom, BorderLayout.SOUTH);
+        historyTable.getSelectionModel().addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting()) return;
+            int sel = historyTable.getSelectedRow();
+            if (sel < 0) {
+                cancelBtn.setEnabled(false);
+                confirmStartBtn.setEnabled(false);
+                return;
+            }
+            int modelRow = historyTable.convertRowIndexToModel(sel);
+            Object idObj = historyModel.getValueAt(modelRow, 0);
+            Object statusObj = historyModel.getValueAt(modelRow, 4);
+            if (idObj == null || statusObj == null) {
+                cancelBtn.setEnabled(false);
+                confirmStartBtn.setEnabled(false);
+                return;
+            }
+            int bookingId = (int) idObj;
+            String status = statusObj.toString();
+            cancelBtn.setEnabled(bookingDAO.canCancelBooking(bookingId, currentUser.getUserId()));
+            confirmStartBtn.setEnabled("ACCEPTED".equalsIgnoreCase(status) && bookingDAO.isAwaitingStudentStartConfirmation(bookingId));
+        });
+
+        cancelBtn.addActionListener(ev -> {
+            int sel = historyTable.getSelectedRow();
+            if (sel < 0) return;
+            int modelRow = historyTable.convertRowIndexToModel(sel);
+            Object idObj = historyModel.getValueAt(modelRow, 0);
+            if (idObj == null) return;
+            int bookingId = (int) idObj;
+            boolean ok = bookingDAO.cancelBookingIfPendingOrAccepted(bookingId, currentUser.getUserId());
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Yêu cầu đã được hủy.", "Đã hủy", JOptionPane.INFORMATION_MESSAGE);
+                loadBookingHistory();
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể hủy yêu cầu (có thể không còn ở trạng thái PENDING/ACCEPTED).", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                loadBookingHistory();
+            }
+        });
+
+        confirmStartBtn.addActionListener(ev -> {
+            int sel = historyTable.getSelectedRow();
+            if (sel < 0) return;
+            int modelRow = historyTable.convertRowIndexToModel(sel);
+            Object idObj = historyModel.getValueAt(modelRow, 0);
+            if (idObj == null) return;
+            int bookingId = (int) idObj;
+            if (JOptionPane.showConfirmDialog(this, "Xác nhận bắt đầu buổi học?", "Xác nhận", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                boolean ok = bookingDAO.confirmStudentStartAndTransition(bookingId, currentUser.getUserId());
+                if (ok) {
+                    JOptionPane.showMessageDialog(this, "Buổi học bắt đầu.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    loadBookingHistory();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể xác nhận bắt đầu.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        loadBookingHistory();
+        return p;
     }
 
-    private void requestTutor() {
-        Tutor selectedTutor = tutorList.getSelectedValue();
-        if (selectedTutor == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một gia sư.", "Thông báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        String notes = notesArea.getText().trim();
-        Booking booking = new Booking(currentUser.getUserId(), selectedTutor.getTutorId(), LocalDateTime.now(), notes);
-        if (!bookingDAO.insertBooking(booking)) {
-            JOptionPane.showMessageDialog(this, "Không thể gửi yêu cầu booking.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        JOptionPane.showMessageDialog(this, "Yêu cầu gửi thành công!\nChờ gia sư xác nhận hoặc từ chối.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-        loadBookingStatus();
-    }
-
-    private String formatTutor(Tutor tutor) {
-        return "Gia sư #" + tutor.getTutorId()
-                + " | Học phí: " + tutor.getPricePerHour()
-                + " | Tỉnh: " + (tutor.getProvinceName() == null || tutor.getProvinceName().isBlank() ? "(chưa cập nhật)" : tutor.getProvinceName())
-                + " | Trạng thái: " + tutor.getStatus();
-    }
-
-    private void showSubjectPicker() {
+    private void loadFilterData() {
+        subjectCombo.removeAllItems();
+        subjectCombo.addItem("Tất cả");
         List<String> subjects = tutorDAO.getAllSubjectNames();
-        if (subjects.isEmpty()) {
-            subjects = List.of("Toán", "Lý", "Hóa", "Tiếng Anh", "Tin Học");
-        }
+        for (String s : subjects) subjectCombo.addItem(s);
 
-        DefaultListModel<String> subjectModel = new DefaultListModel<>();
-        for (String subject : subjects) {
-            subjectModel.addElement(subject);
-        }
-
-        JList<String> pickerList = new JList<>(subjectModel);
-        pickerList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        pickerList.setVisibleRowCount(6);
-        pickerList.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-
-        if (!selectedSubjects.isEmpty()) {
-            int[] indices = selectedSubjects.stream()
-                    .mapToInt(subjectModel::indexOf)
-                    .filter(index -> index >= 0)
-                    .toArray();
-            pickerList.setSelectedIndices(indices);
-        }
-
-        JScrollPane scrollPane = new JScrollPane(pickerList);
-        scrollPane.setPreferredSize(new Dimension(260, 180));
-
-        int result = JOptionPane.showConfirmDialog(
-                this,
-                scrollPane,
-                "Chọn môn học",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (result == JOptionPane.OK_OPTION) {
-            selectedSubjects.clear();
-            selectedSubjects.addAll(pickerList.getSelectedValuesList());
-            updateSubjectButtonLabel();
-            updateTutorList();
-        }
+        provinceCombo.removeAllItems();
+        provinceCombo.addItem("Tất cả tỉnh thành");
+        List<String> provinces = tutorDAO.getAllProvinceNames();
+        for (String p : provinces) provinceCombo.addItem(p);
     }
 
-    private void updateSubjectButtonLabel() {
-        if (selectedSubjects.isEmpty()) {
-            subjectSelectButton.setText("Chọn môn");
-        } else if (selectedSubjects.size() == 1) {
-            subjectSelectButton.setText(selectedSubjects.get(0));
+    private void searchTutors() {
+        String subject = (String) subjectCombo.getSelectedItem();
+        String province = (String) provinceCombo.getSelectedItem();
+        String name = nameSearchField.getText().trim().toLowerCase();
+
+        List<Tutor> tutors;
+        if (subject == null || "Tất cả".equals(subject)) {
+            tutors = tutorDAO.getAllTutors();
         } else {
-            subjectSelectButton.setText(selectedSubjects.size() + " môn đã chọn");
+            tutors = tutorDAO.getTutorsBySubjectAndProvince(subject, null);
+        }
+        if (province != null && !"Tất cả tỉnh thành".equals(province)) {
+            tutors = tutors.stream().filter(t -> province.equals(t.getProvinceName())).collect(Collectors.toList());
+        }
+        tutorTableModel.setRowCount(0);
+        for (Tutor t : tutors) {
+            if (t.getStatus() != null && "BUSY".equalsIgnoreCase(t.getStatus())) {
+                continue;
+            }
+            
+            String tutorName = "(chưa có)";
+            if (t.getUserId() != 0) {
+                var u = userDAO.getUserById(t.getUserId());
+                if (u != null) tutorName = u.getFullName();
+            }
+            if (!name.isBlank() && !tutorName.toLowerCase().contains(name)) continue;
+
+            List<String> subjects = tutorDAO.getSubjectNamesByTutorId(t.getTutorId());
+            String subj = String.join(", ", subjects);
+            tutorTableModel.addRow(new Object[]{t.getTutorId(), tutorName, subj, String.valueOf(t.getPricePerHour()), t.getProvinceName(), t.getExperience()});
         }
     }
 
-    private void loadBookingStatus() {
+    private void onTutorSelected(ListSelectionEvent e) {
+        if (e.getValueIsAdjusting()) return;
+        int sel = tutorTable.getSelectedRow();
+        if (sel < 0) {
+            bookButton.setEnabled(false);
+            totalPriceLabel.setText("Giá dự kiến: -");
+            return;
+        }
+        int modelRow = tutorTable.convertRowIndexToModel(sel);
+        Object idObj = tutorTableModel.getValueAt(modelRow, 0);
+        if (idObj == null) return;
+        int tutorId = (int) idObj;
+
+        Tutor t = tutorDAO.getTutorById(tutorId);
+        String priceText = t.getPricePerHour() == null ? "-" : t.getPricePerHour().toString();
+        totalPriceLabel.setText("Giá/Giờ: " + priceText);
+        bookButton.setEnabled(true);
+    }
+
+    private void bookSelectedTutor() {
+        int sel = tutorTable.getSelectedRow();
+        if (sel < 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn gia sư để đặt.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int modelRow = tutorTable.convertRowIndexToModel(sel);
+        int tutorId = (int) tutorTableModel.getValueAt(modelRow, 0);
+        Tutor tcheck = tutorDAO.getTutorById(tutorId);
+        if (tcheck != null && "BUSY".equalsIgnoreCase(tcheck.getStatus())) {
+            JOptionPane.showMessageDialog(this, "Gia sư hiện đang bận và không nhận lớp mới.", "Không thể đặt", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (bookingDAO.hasPendingBooking(currentUser.getUserId(), tutorId)) {
+            JOptionPane.showMessageDialog(this, "Bạn đã có yêu cầu đang chờ với gia sư này.", "Không thể đặt", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String notes = notesArea.getText().trim();
+        Booking booking = new Booking(currentUser.getUserId(), tutorId, LocalDateTime.now(), notes);
+        boolean ok = bookingDAO.insertBooking(booking);
+        if (ok) {
+            JOptionPane.showMessageDialog(this, "Đặt gia sư thành công.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            notesArea.setText("");
+            loadBookingHistory();
+        } else {
+            JOptionPane.showMessageDialog(this, "Không thể đặt gia sư.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void loadBookingHistory() {
+        historyModel.setRowCount(0);
         List<Booking> bookings = bookingDAO.getBookingsByStudentId(currentUser.getUserId());
-        
-        StringBuilder status = new StringBuilder();
-        for (Booking booking : bookings) {
-            status.append("Booking ID: ").append(booking.getBookingId())
-                    .append("\nTrạng thái: ").append(booking.getStatus())
-                    .append("\nNgày: ").append(booking.getBookingDate())
-                    .append("\nLời nhắn: ").append(booking.getNotes() == null || booking.getNotes().isBlank() ? "(không có)" : booking.getNotes())
-                    .append("\n---\n");
-        }
-
-        if (status.length() == 0) {
-            bookingStatusArea.setText("Chưa có yêu cầu booking nào.");
-        } else {
-            bookingStatusArea.setText(status.toString());
+        for (Booking b : bookings) {
+            String tutorName = "(không xác định)";
+            var t = tutorDAO.getTutorById(b.getTutorId());
+            if (t != null && t.getUserId() != 0) {
+                var u = userDAO.getUserById(t.getUserId());
+                if (u != null) tutorName = u.getFullName();
+            }
+            historyModel.addRow(new Object[]{b.getBookingId(), tutorName, b.getBookingDate(), b.getNotes(), b.getStatus()});
         }
     }
 

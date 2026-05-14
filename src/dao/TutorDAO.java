@@ -7,10 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TutorDAO {
-    
-    /**
-     * Insert a new tutor
-     */
     public boolean insertTutor(Tutor tutor) {
         String sql = "INSERT INTO Tutors (tutor_id, price_per_hour, experience, status, province_id) VALUES (?, ?, ?, ?, ?)";
         
@@ -34,10 +30,6 @@ public class TutorDAO {
             return false;
         }
     }
-
-    /**
-     * Insert a new tutor inside an existing transaction.
-     */
     public boolean insertTutor(Connection conn, Tutor tutor) throws SQLException {
         String sql = "INSERT INTO Tutors (tutor_id, price_per_hour, experience, status, province_id) VALUES (?, ?, ?, ?, ?)";
 
@@ -100,10 +92,6 @@ public class TutorDAO {
             return null;
         }
     }
-
-    /**
-     * Get all subject names from the Subjects table.
-     */
     public List<String> getAllSubjectNames() {
         List<String> subjectNames = new ArrayList<>();
         String sql = "SELECT subject_name FROM Subjects ORDER BY subject_name ASC";
@@ -121,10 +109,6 @@ public class TutorDAO {
 
         return subjectNames;
     }
-
-    /**
-     * Link a tutor to one subject inside an existing transaction.
-     */
     public boolean insertTutorSubject(Connection conn, int tutorId, int subjectId) throws SQLException {
         String sql = "INSERT INTO Tutor_Subjects (tutor_id, subject_id) VALUES (?, ?)";
 
@@ -134,14 +118,8 @@ public class TutorDAO {
             return pstmt.executeUpdate() > 0;
         }
     }
-
-    /**
-     * Resolve a subject name to its ID.
-     */
     public Integer getSubjectIdByName(Connection conn, String subjectName) {
     String sql = "SELECT subject_id FROM Subjects WHERE LOWER(subject_name) = LOWER(?)";
-    
-    // Đảm bảo subjectName không bị null trước khi truy vấn
     if (subjectName == null || subjectName.trim().isEmpty()) return null;
 
     try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -152,11 +130,10 @@ public class TutorDAO {
             }
         }
     } catch (SQLException e) {
-        // Thay vì quăng lỗi ra ngoài, bạn có thể log lại để dễ debug
         System.err.println("Lỗi khi lấy Subject ID: " + e.getMessage());
     }
 
-    return null; // Không tìm thấy hoặc có lỗi xảy ra
+    return null; 
 }
 
     public List<String> getSubjectNamesByTutorId(int tutorId) {
@@ -218,10 +195,6 @@ public class TutorDAO {
             return false;
         }
     }
-    
-    /**
-     * Get tutor by ID
-     */
     public Tutor getTutorById(int tutorId) {
         String sql = "SELECT t.*, p.province_name FROM Tutors t " +
             "LEFT JOIN Provinces p ON t.province_id = p.province_id " +
@@ -242,10 +215,6 @@ public class TutorDAO {
         }
         return null;
     }
-    
-    /**
-     * Get tutors by subject
-     */
     public List<Tutor> getTutorsBySubject(String subject) {
         return getTutorsBySubjectAndProvince(subject, null);
     }
@@ -278,10 +247,6 @@ public class TutorDAO {
         }
         return tutors;
     }
-    
-    /**
-     * Get tutors by status
-     */
     public List<Tutor> getTutorsByStatus(String status) {
         List<Tutor> tutors = new ArrayList<>();
         String sql = "SELECT t.*, p.province_name FROM Tutors t " +
@@ -303,10 +268,6 @@ public class TutorDAO {
         }
         return tutors;
     }
-    
-    /**
-     * Get all tutors
-     */
     public List<Tutor> getAllTutors() {
         List<Tutor> tutors = new ArrayList<>();
         String sql = "SELECT t.*, p.province_name FROM Tutors t " +
@@ -325,10 +286,6 @@ public class TutorDAO {
         }
         return tutors;
     }
-    
-    /**
-     * Update tutor
-     */
     public boolean updateTutor(Tutor tutor) {
         String sql = "UPDATE Tutors SET price_per_hour = ?, experience = ?, status = ?, province_id = ? WHERE tutor_id = ?";
         
@@ -352,10 +309,6 @@ public class TutorDAO {
             return false;
         }
     }
-    
-    /**
-     * Delete tutor
-     */
     public boolean deleteTutor(int tutorId) {
         String sql = "DELETE FROM Tutors WHERE tutor_id = ?";
         
@@ -370,13 +323,10 @@ public class TutorDAO {
             return false;
         }
     }
-    
-    /**
-     * Map ResultSet to Tutor object
-     */
     private Tutor mapResultSetToTutor(ResultSet rs) throws SQLException {
         Tutor tutor = new Tutor();
         tutor.setTutorId(rs.getInt("tutor_id"));
+        tutor.setUserId(tutor.getTutorId());
         tutor.setPricePerHour(rs.getBigDecimal("price_per_hour"));
         tutor.setExperience(rs.getString("experience"));
         tutor.setStatus(rs.getString("status"));

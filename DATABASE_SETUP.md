@@ -8,7 +8,7 @@ CREATE TABLE Users (
     password VARCHAR(50) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     phone VARCHAR(15),
-    role ENUM('STUDENT', 'TUTOR', 'ADMIN') NOT NULL
+    role ENUM('STUDENT', 'TUTOR') NOT NULL
 );
 
 CREATE TABLE Subjects (
@@ -37,7 +37,7 @@ CREATE TABLE Bookings (
     student_id INT NOT NULL,
     tutor_id INT NOT NULL,
     booking_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('PENDING', 'ACCEPTED', 'REJECTED', 'COMPLETED') DEFAULT 'PENDING',
+    status ENUM('PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'REJECTED') DEFAULT 'PENDING',
     FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (tutor_id) REFERENCES Tutors(tutor_id) ON DELETE CASCADE
 );
@@ -54,3 +54,4 @@ ALTER TABLE Tutors ADD COLUMN province_id INT;
 ALTER TABLE Tutors ADD FOREIGN KEY (province_id) REFERENCES Provinces(province_id);
 
 INSERT INTO Provinces (province_name) VALUES ('Đà Nẵng'), ('Hà Nội'), ('TP Hồ Chí Minh'), ('Quảng Nam'), ('Huế');
+ALTER TABLE Tutors ADD COLUMN capacity INT DEFAULT 1;

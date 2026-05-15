@@ -13,7 +13,6 @@ public class AdminUI extends JFrame {
     private JLabel statsLabel;
     private DefaultTableModel tutorListModel;
     private JTable tutorTable;  
-    // private JTable studentTable;
     private DefaultTableModel studentListModel;
 
     public AdminUI() {
@@ -23,47 +22,80 @@ public class AdminUI extends JFrame {
         setLocationRelativeTo(null);
 
         JPanel headerPanel = new JPanel(new BorderLayout());
-    headerPanel.setBackground(new Color(52, 73, 94)); 
-    headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-JLabel titleLabel = new JLabel("HỆ THỐNG QUẢN TRỊ GRABTUTOR");
-    titleLabel.setForeground(Color.WHITE);
-    titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        headerPanel.setBackground(new Color(52, 73, 94)); 
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        
+        headerPanel.setBackground(new Color(52, 73, 94)); 
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+        JLabel titleLabel = new JLabel("HỆ THỐNG QUẢN TRỊ GRABTUTOR");
+        titleLabel.setForeground(Color.WHITE);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); // Thêm khoảng cách 10px giữa các nút
+        btnPanel.setOpaque(false);
+            
+        JButton btnUpdate = new JButton("Cập nhật thông tin");
+        btnUpdate.setBackground(new Color(52, 152, 219)); 
+        btnUpdate.setForeground(Color.BLACK);
+        btnUpdate.setFocusable(false);
+
+    btnUpdate.addActionListener(e -> {
+    int selectedRow = tutorTable.getSelectedRow(); 
+    if (selectedRow != -1) {
+        String username = (String) tutorTable.getValueAt(selectedRow, 1);
+        String currentName = (String) tutorTable.getValueAt(selectedRow, 0);
+
+        String[] options = {"Sửa Họ Tên", "Đổi Mật Khẩu"};
+        int choice = JOptionPane.showOptionDialog(this, 
+                "Bạn muốn cập nhật thông tin gì cho " + username + "?",
+                "Tùy chọn cập nhật",
+                JOptionPane.DEFAULT_OPTION, 
+                JOptionPane.QUESTION_MESSAGE, 
+                null, options, options[0]);
+
+        if (choice == 0) {
+            String newName = JOptionPane.showInputDialog(this, "Nhập tên mới:", currentName);
+            if (newName != null && !newName.trim().isEmpty()) {
+                if (adminDAO.updateUserInfoByUsername(username, newName.trim())) {
+                    JOptionPane.showMessageDialog(this, "Cập nhật tên thành công!");
+                    refreshData(); 
+                }
+            }
+        } else if (choice == 1) { 
+            String newPass = JOptionPane.showInputDialog(this, "Nhập mật khẩu mới cho " + username + ":");
+            if (newPass != null && !newPass.trim().isEmpty()) {
+                if (adminDAO.updatePasswordByUsername(username, newPass.trim())) {
+                    JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công!");
+                }
+            }
+        }
+    } else {
+        JOptionPane.showMessageDialog(this, "Vui lòng chọn một gia sư từ bảng Thống kê!");
+    }
+});
+
     JButton btnLogout = new JButton("Đăng xuất");
     btnLogout.setFocusable(false);
     btnLogout.setBackground(new Color(231, 76, 60));
     btnLogout.setForeground(Color.BLACK);
     btnLogout.addActionListener(e -> handleLogout());
 
-    JButton btnUpdate = new JButton("Cập nhật thông tin");
-    btnUpdate.setBackground(new Color(52, 152, 219));
-    btnUpdate.setForeground(Color.BLACK);
-    btnUpdate.addActionListener(e -> {
-    int tutorRow = tutorTable.getSelectedRow();
-    if (tutorRow != -1) {
-        String username = tutorListModel.getValueAt(tutorRow, 1).toString();
-        String oldName = tutorListModel.getValueAt(tutorRow, 0).toString();
-        
-        String newName = JOptionPane.showInputDialog(this, "Sửa tên cho " + username + ":", oldName);
-        if (newName != null && !newName.trim().isEmpty()) {
-            if (adminDAO.updateUserInfoByUsername(username, newName.trim())) {
-                JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
-                refreshData();
-            }
-        }
-    }
-});
-    headerPanel.add(titleLabel, BorderLayout.WEST);
-    headerPanel.add(btnLogout, BorderLayout.EAST);
+    btnPanel.add(btnUpdate);
+    btnPanel.add(btnLogout);
+    headerPanel.add(btnPanel, BorderLayout.EAST);
 
     JTabbedPane tabs = new JTabbedPane();
     tabs.addTab("Duyệt Gia Sư", createApprovalTab());
     tabs.addTab("Thống Kê Hệ Thống", createStatsTab());
-
-        setLayout(new BorderLayout());
+    
+    setLayout(new BorderLayout());
     add(headerPanel, BorderLayout.NORTH);
     add(tabs, BorderLayout.CENTER);
-        refreshData();
-        setVisible(true);
+
+    refreshData();
+    setVisible(true);
     }
 
     private void handleLogout() {
@@ -112,20 +144,25 @@ JLabel titleLabel = new JLabel("HỆ THỐNG QUẢN TRỊ GRABTUTOR");
     }
 
     private JPanel createStatsTab() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+    JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
     mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+    
     statsLabel = new JLabel("Thống kê hệ thống", SwingConstants.CENTER);
     statsLabel.setFont(new Font("Arial", Font.BOLD, 16));
     mainPanel.add(statsLabel, BorderLayout.NORTH);
+    
     JTabbedPane filterTabs = new JTabbedPane();
-    tutorListModel = new DefaultTableModel(new String[]{"Họ Tên", "Username", "SĐT", "Trạng thái"}, 0);
-    filterTabs.addTab("Danh sách Gia sư", new JScrollPane(new JTable(tutorListModel)));
-    studentListModel = new DefaultTableModel(new String[]{"Họ Tên", "Username", "SĐT"}, 0);
+    
+    tutorListModel = new DefaultTableModel(new String[]{"Họ Tên", "Username", "Mật khẩu", "SĐT", "Trạng thái"}, 0);
+    tutorTable = new JTable(tutorListModel); 
+    tutorTable.setRowHeight(30); 
+    filterTabs.addTab("Danh sách Gia sư", new JScrollPane(tutorTable));
+    studentListModel = new DefaultTableModel(new String[]{"Họ Tên", "Username", "Mật khẩu", "SĐT"}, 0);
     filterTabs.addTab("Danh sách Học sinh", new JScrollPane(new JTable(studentListModel)));
 
     mainPanel.add(filterTabs, BorderLayout.CENTER);
     return mainPanel;
-    }
+}
 
 
 private void refreshData() {
@@ -147,6 +184,7 @@ private void refreshData() {
             tutorListModel.addRow(new Object[]{
                 tutorItem.get("name"), 
                 tutorItem.get("username"), 
+                tutorItem.get("password"),
                 tutorItem.get("phone"), 
                 tutorItem.get("status")
             });
@@ -157,7 +195,8 @@ private void refreshData() {
         for (Map<String, String> studentItem : students) {
             studentListModel.addRow(new Object[]{
                 studentItem.get("name"), 
-                studentItem.get("username"), 
+                studentItem.get("username"),
+                studentItem.get("password"),
                 studentItem.get("phone")
             });
         }

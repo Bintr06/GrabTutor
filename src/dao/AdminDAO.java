@@ -68,7 +68,7 @@ public class AdminDAO {
 }
 public List<Map<String, String>> getAllTutors() {
     List<Map<String, String>> list = new ArrayList<>();
-    String sql = "SELECT u.full_name, u.username, u.phone, t.status FROM Users u " +
+    String sql = "SELECT u.full_name, u.username, u.password, u.phone, t.status FROM Users u " + 
                  "JOIN Tutors t ON u.user_id = t.tutor_id WHERE u.role = 'TUTOR'";
     try (Connection conn = DBConnection.getConnection();
          PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -77,6 +77,7 @@ public List<Map<String, String>> getAllTutors() {
             Map<String, String> m = new HashMap<>();
             m.put("name", rs.getString("full_name"));
             m.put("username", rs.getString("username"));
+            m.put("password", rs.getString("password"));
             m.put("phone", rs.getString("phone"));
             m.put("status", rs.getString("status"));
             list.add(m);
@@ -84,25 +85,26 @@ public List<Map<String, String>> getAllTutors() {
     } catch (SQLException e) { e.printStackTrace(); }
     return list;
 }
-public boolean updateUserInfoByUsername(String username, String fullName) {
+public boolean updateUserInfoByUsername(String fullName, String newName) {
     String sql = "UPDATE Users SET full_name = ? WHERE username = ?";
     
-    try (Connection conn = database.DBConnection.getConnection();
-         java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
         
-        ps.setString(1, fullName);
-        ps.setString(2, username); 
+        ps.setString(1, newName); 
+        ps.setString(2, fullName);    
         
-        return ps.executeUpdate() > 0;
+        int rowsAffected = ps.executeUpdate();
+        return rowsAffected > 0;
         
-    } catch (java.sql.SQLException e) {
-        System.err.println("Lỗi cập nhật Admin: " + e.getMessage());
+    } catch (SQLException e) {
+        e.printStackTrace();
         return false;
     }
 }
 public List<Map<String, String>> getAllStudents() {
     List<Map<String, String>> list = new ArrayList<>();
-    String sql = "SELECT full_name, username, phone FROM Users WHERE role = 'STUDENT'";
+    String sql = "SELECT full_name, username, password, phone FROM Users WHERE role = 'STUDENT'";
     try (Connection conn = DBConnection.getConnection();
          PreparedStatement ps = conn.prepareStatement(sql)) {
         ResultSet rs = ps.executeQuery();
@@ -110,11 +112,29 @@ public List<Map<String, String>> getAllStudents() {
             Map<String, String> m = new HashMap<>();
             m.put("name", rs.getString("full_name"));
             m.put("username", rs.getString("username"));
+            m.put("password", rs.getString("password"));
             m.put("phone", rs.getString("phone"));
             list.add(m);
         }
     } catch (SQLException e) { e.printStackTrace(); }
     return list;
+}
+
+public boolean updatePasswordByUsername(String username, String newPassword) {
+    String sql = "UPDATE Users SET password = ? WHERE username = ?";
+    
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        
+        ps.setString(1, newPassword);
+        ps.setString(2, username);   
+        
+        return ps.executeUpdate() > 0;
+        
+    } catch (SQLException e) {
+        System.err.println("Lỗi cập nhật mật khẩu: " + e.getMessage());
+        return false;
+    }
 }
 }
 

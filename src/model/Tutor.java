@@ -10,6 +10,14 @@ public class Tutor {
     private String status;
     private Integer provinceId;
     private String provinceName;
+    private boolean isApproved;
+    public boolean isApproved() {
+        return isApproved;
+    }
+
+    public void setApproved(boolean approved) {
+        isApproved = approved;
+    }
     public Tutor() {
     }
 

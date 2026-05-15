@@ -105,6 +105,7 @@ public class TutorUI extends JFrame {
             allGrades = new ArrayList<>();
             for (int i = 1; i <= 12; i++) allGrades.add("Lớp " + i);
         }
+
 List<String> selectedGrades = tutor != null ? tutorDAO.getGradeNamesByTutorId(tutor.getTutorId()) : new ArrayList<>();
 System.out.println("DEBUG - Danh sach lop tu DB: " + selectedGrades); 
 

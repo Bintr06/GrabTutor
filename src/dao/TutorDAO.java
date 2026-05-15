@@ -110,10 +110,6 @@ public class TutorDAO {
         return subjectNames;
     }
 
-    // ==============================
-    // Grades (Lớp) helpers
-    // ==============================
-
     public List<String> getAllGradeNames() {
         List<String> gradeNames = new ArrayList<>();
         String sql = "SELECT name FROM grades ORDER BY id ASC";
@@ -401,7 +397,8 @@ public class TutorDAO {
     public List<Tutor> getAllTutors() {
         List<Tutor> tutors = new ArrayList<>();
         String sql = "SELECT t.*, p.province_name FROM Tutors t " +
-            "LEFT JOIN Provinces p ON t.province_id = p.province_id";
+            "LEFT JOIN Provinces p ON t.province_id = p.province_id" +
+                 "WHERE t.is_approved = TRUE";
         
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement();
@@ -417,10 +414,7 @@ public class TutorDAO {
         return tutors;
     }
 
-    /**
-     * Search tutors with optional filters (any may be null/blank): subject_name, province_name, grade name.
-     * When gradeName is provided, joins tutor_grades + grades to filter correctly.
-     */
+
     public List<Tutor> searchTutors(String subjectName, String provinceName, String gradeName) {
         List<Tutor> tutors = new ArrayList<>();
         boolean hasSubject = subjectName != null && !subjectName.isBlank();
@@ -430,7 +424,8 @@ public class TutorDAO {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT DISTINCT t.*, p.province_name ")
            .append("FROM Tutors t ")
-           .append("LEFT JOIN Provinces p ON t.province_id = p.province_id ");
+           .append("LEFT JOIN Provinces p ON t.province_id = p.province_id ")
+           .append("WHERE t.is_approved = TRUE ");
 
         if (hasSubject) {
             sql.append("INNER JOIN Tutor_Subjects ts ON t.tutor_id = ts.tutor_id ")
@@ -479,6 +474,21 @@ public class TutorDAO {
 
         return tutors;
     }
+
+    public boolean updateTutorProfile(Tutor tutor) {
+    String sql = "UPDATE Tutors SET price_per_hour = ?, experience = ?, province_id = ? WHERE tutor_id = ?";
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setBigDecimal(1, tutor.getPricePerHour());
+        ps.setString(2, tutor.getExperience());
+        ps.setInt(3, tutor.getProvinceId());
+        ps.setInt(4, tutor.getTutorId());
+        return ps.executeUpdate() > 0;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
     public boolean updateTutor(Tutor tutor) {
         String sql = "UPDATE Tutors SET price_per_hour = ?, experience = ?, status = ?, province_id = ? WHERE tutor_id = ?";
         
@@ -523,6 +533,7 @@ public class TutorDAO {
         tutor.setPricePerHour(rs.getBigDecimal("price_per_hour"));
         tutor.setExperience(rs.getString("experience"));
         tutor.setStatus(rs.getString("status"));
+        tutor.setApproved(rs.getBoolean("is_approved"));
         int provinceId = rs.getInt("province_id");
         tutor.setProvinceId(rs.wasNull() ? null : provinceId);
         try {

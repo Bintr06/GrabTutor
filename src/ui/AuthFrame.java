@@ -5,7 +5,7 @@ import dao.UserDAO;
 import database.DBConnection;
 import model.Tutor;
 import model.User;
-
+// import dao.AdminDAO;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -281,6 +281,7 @@ public class AuthFrame extends JFrame {
         String username = loginUsernameField.getText().trim();
         String password = new String(loginPasswordField.getPassword());
 
+        
         if (username.isEmpty() || password.isEmpty()) {
             showError("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.");
             return;
@@ -301,11 +302,20 @@ public class AuthFrame extends JFrame {
                 "Đăng nhập thành công. Xin chào " + user.getFullName() + "!",
                 "Thành công",
                 JOptionPane.INFORMATION_MESSAGE);
-        if ("STUDENT".equals(user.getRole())) {
-            new StudentUI(user);
-        } else if ("TUTOR".equals(user.getRole())) {
-            new TutorUI(user);
+        if ("ADMIN".equals(user.getRole())) {
+        new AdminUI().setVisible(true);
+    } 
+    else if ("TUTOR".equals(user.getRole())) {
+        model.Tutor tutor = tutorDAO.getTutorById(user.getUserId());
+        if (tutor != null && !tutor.isApproved()) {
+            showError("Tài khoản gia sư của bạn đang chờ Admin phê duyệt.");
+            return; 
         }
+        new TutorUI(user).setVisible(true);
+    } 
+    else if ("STUDENT".equals(user.getRole())) {
+        new StudentUI(user).setVisible(true);
+    }
         dispose();
     }
 
@@ -388,8 +398,6 @@ public class AuthFrame extends JFrame {
                     if (!tutorDAO.insertTutor(conn, tutor)) {
                         throw new SQLException("Không thể tạo hồ sơ gia sư.");
                     }
-
-                    // Save tutor grades first
                     if (!tutorDAO.insertTutorGrades(conn, userId, selectedGrades)) {
                         throw new SQLException("Không thể lưu danh sách lớp dạy.");
                     }

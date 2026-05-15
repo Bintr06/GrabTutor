@@ -13,7 +13,7 @@ public class AdminUI extends JFrame {
     private JLabel statsLabel;
     private DefaultTableModel tutorListModel;
     private JTable tutorTable;  
-    private JTable studentTable;
+    // private JTable studentTable;
     private DefaultTableModel studentListModel;
 
     public AdminUI() {

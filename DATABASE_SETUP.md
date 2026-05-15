@@ -42,7 +42,7 @@ FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE,
 FOREIGN KEY (tutor_id) REFERENCES Tutors(tutor_id) ON DELETE CASCADE
 );
 
-INSERT INTO Subjects (subject_name) VALUES ('Toán'), ('Vật Lý'), ('Hóa Học'), ('Tiếng Anh');
+INSERT INTO Subjects (subject_name) VALUES ('Toán'), ('Vật Lý'), ('Hóa Học'), ('Tiếng Anh'), ('Tiếng Việt'), ('Sinh học');
 
 ALTER TABLE Bookings ADD COLUMN notes TEXT;
 CREATE TABLE Provinces (
@@ -73,3 +73,8 @@ PRIMARY KEY (tutor_id, grade_id),
 CONSTRAINT fk_tutor_grades_tutor FOREIGN KEY (tutor_id) REFERENCES Tutors(tutor_id) ON DELETE CASCADE,
 CONSTRAINT fk_tutor_grades_grade FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE
 );
+
+ALTER TABLE Users MODIFY COLUMN role ENUM('STUDENT', 'TUTOR', 'ADMIN') NOT NULL;
+ALTER TABLE Tutors ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
+INSERT INTO Users (username, password, full_name, role)
+VALUES ('admin', 'admin123', 'Hệ thống Admin', 'ADMIN');
